@@ -1,0 +1,35 @@
+syntax =  "proto3";
+
+package  authenticationPackage;
+
+service Authenticate {
+  rpc authenticateUser ( token ) returns ( user );
+  rpc authenticateUserWithGoogle ( userFromGoogle ) returns ( userFromGoogle );
+
+}
+
+message token {
+  string id = 1;
+}
+
+message user {
+  string email = 1;
+  string name = 2;
+  string role = 3;
+  string createdAt = 4;
+  string updatedAt = 5;
+}
+
+message credentials {
+  string email = 1;
+  string password = 2;
+}
+
+message userFromGoogle {
+  string googleId = 1;
+  string displayName = 2;
+  string firstName = 3;
+  string lastName = 4;
+  string image = 5;
+  string provider = 6;
+}
