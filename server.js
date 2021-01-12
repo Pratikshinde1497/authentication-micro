@@ -3,7 +3,7 @@ const protoLoader = require("@grpc/proto-loader");
 const jwt = require("jsonwebtoken");
 require("dotenv").config({path: "./config/config.env"});
 
-const packageDef = protoLoader.loadSync("authentication.proto", {});
+const packageDef = protoLoader.loadSync("proto-services/services/authenticate/service.proto", {});
 const grpcObject = grpc.loadPackageDefinition(packageDef);
 const authenticationPackage = grpcObject.authenticationPackage;
 
@@ -13,25 +13,13 @@ const Users = db.gUsers;
 const server = new grpc.Server();
 server.bind("127.0.0.1:4001", grpc.ServerCredentials.createInsecure());
 
-server.addService(authenticationPackage.Authenticate.service, {
+server.addService(authenticationPackage.AuthenticateAPI.service, {
   "authenticateUser": authenticateUser,
   "authenticateUserWithGoogle": authenticateUserWithGoogle,
-  "returnToken": returnToken
 })
 
 server.start()
 
-//  demo function 
-async function returnToken(call, callback) {
-  console.log(call.request);
-  const id = call.request.tokenId;
-  
-  //  sign that token
-  const tokenId = getSignedToken(id);
-  const token = { tokenId }
-  console.log(token);
-  callback(null, token );
-}
 
 //  suthenticate user with id
 async function authenticateUser(call, callback) {
