@@ -1,5 +1,7 @@
 const grpc = require("grpc");
 const protoLoader = require("@grpc/proto-loader");
+const jwt = require("jsonwebtoken");
+require("dotenv").config({path: "./config/config.env"});
 
 const packageDef = protoLoader.loadSync("authentication.proto", {});
 const grpcObject = grpc.loadPackageDefinition(packageDef);
@@ -13,43 +15,103 @@ server.bind("127.0.0.1:4001", grpc.ServerCredentials.createInsecure());
 
 server.addService(authenticationPackage.Authenticate.service, {
   "authenticateUser": authenticateUser,
-  "authenticateUserWithGoogle": authenticateUserWithGoogle
+  "authenticateUserWithGoogle": authenticateUserWithGoogle,
+  "returnToken": returnToken
 })
 
 server.start()
 
+//  demo function 
+async function returnToken(call, callback) {
+  console.log(call.request);
+  const id = call.request.tokenId;
+  
+  //  sign that token
+  const tokenId = getSignedToken(id);
+  const token = { tokenId }
+  console.log(token);
+  callback(null, token );
+}
+
+//  suthenticate user with id
 async function authenticateUser(call, callback) {
-  const {id} = call.request;
+  const { tokenId } = call.request;
+  
+  //  extract  token and get googleId
+  const googleId = extractToken(tokenId);
+
   //  get  user by id
-  const user = await Users.findByPk(id)
+  const user = await Users.findOne({ where: { googleId } });
+
   if (!user) {
     callback(null, {error: "no  user found"});
   }
   else {
+    // console.log(user);
     callback(null, user);
   }
 }
 
+//  authenticate user with google: check exists in db or not, return jwt token
 async function authenticateUserWithGoogle(call, callback) {
-  // console.log(call.request);
-  // callback(null, call.request);
   const newUser = call.request;
+  newUser.role = "user";
+
+  //  check if user exist in db or not
+  //  if not exist, then add
+
   const isUserExists = await isUserExistsFun(newUser);
+
   if (isUserExists==null) {
-    saveUserInDb(newUser);
+    try {
+      await saveUserInDb(newUser);
+    } catch (error) {
+      console.log(error);
+    }
   }
-  callback(null, newUser)
+  //  create a signed token with google Id
+  const tokenId = getSignedToken(newUser.googleId);
+  const token = { tokenId }
+
+  //  return token
+  callback(null, token );
 }
 
+
+  //  HELPER FUNCTIONS
+
+const extractToken = (token) => {
+  const decoded = jwt.verify(token, process.env.JWT_SECRET)
+  // console.log(decoded);
+  if (!decoded) {
+    return {code: 401, message: "Invalid Token"}
+  }
+  return decoded.googleId;
+}
+
+
+//  function for creating jwt token
+const getSignedToken = (googleId) => {
+  return jwt.sign({
+      googleId
+    }, 
+      process.env.JWT_SECRET,
+    {
+      expiresIn: process.env.JWT_EXPIRE,
+    })
+} 
+
+
+//  functionn  to check if user exists in db
 const isUserExistsFun = async(user) => {
-  // const userfromdb = await Users.create(user)
   return await Users.findOne({where: {googleId: user.googleId}});
 }
 
+
+//  save user in db
 const saveUserInDb = async (user) => {
   const isCreated = await Users.create(user);
   if (isCreated) {
-    // console.log("new use added into db");
     return;
   }
   else {
