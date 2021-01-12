@@ -1,0 +1,3 @@
+[submodule "proto-services"]
+	path = proto-services
+	url = https://github.com/Pratikshinde1497/proto-services.git
